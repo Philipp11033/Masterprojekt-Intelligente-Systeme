@@ -1,8 +1,6 @@
 import warnings
 import math
 import numpy as np
-import torch
-import os
 from config import ConfigRobot, ConfigSim, RobotType
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -94,12 +92,11 @@ class DWA:
         """
         calc obstacle cost inf: collision
         """
-        
-        ox = ob[:, 0]
-        oy = ob[:, 1]
+        ox = ob[:, :, 0]
+        oy = ob[:, :, 1]
 
-        dx = trajectory[:, 0] - ox[:, None]
-        dy = trajectory[:, 1] - oy[:, None]
+        dx = trajectory[:, None, 0] - ox[:, None]
+        dy = trajectory[:, None, 1] - oy[:, None]
         r = np.hypot(dx, dy)
 
         if config.robot_type == RobotType.circle:

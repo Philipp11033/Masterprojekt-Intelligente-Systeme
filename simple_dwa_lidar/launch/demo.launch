@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="simple_dwa_lidar" type="pedsim_dwa.py" name="simple_dwa_lidar" output="screen"/>
+</launch>

@@ -5,7 +5,6 @@ import rospy
 import message_filters
 import math
 from sensor_msgs.msg import LaserScan
-from pedsim_msgs.msg import AgentStates
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from config import ConfigRobot, ConfigSim
@@ -19,8 +18,11 @@ import numpy as np
 class MainNode:
     def __init__(self, num_agent, r_goal):
         self.r_state = np.zeros(5)  # v_x, v_y, yaw, v_t, omega_t
-        self.r_goal = np.array(list(map(float, r_goal.split())))  # goal_x, goal_y
-    
+        # self.r_goal = np.array(list(map(float, r_goal.split())))  # goal_x, goal_y
+
+        self.min_dist = 1000
+        self.r_goal = np.array(r_goal)
+
         self.emergency_stop = False
         self.stop_range = 0.5
 
@@ -124,20 +126,25 @@ class MainNode:
             # Create a Twist message and add linear x and angular z values
             self.cmd_vel.linear.x = u[0, 0]
             self.cmd_vel.angular.z = u[0, 1]
-            self.pub.publish(self.cmd_vel)
-            #if(self.emergency_stop == False):
-            #    self.pub.publish(self.cmd_vel)
-            #else:
+            print("Publishing: ")
+            print(self.cmd_vel)
+            # self.pub.publish(self.cmd_vel)
+            #
+            # if(self.emergency_stop == False):
+            #     self.pub.publish(self.cmd_vel)
+            # else:
             #    self.pub.publish(Twist())
 
 
 if __name__ == '__main__':
     # get command-line arguments
-    num_agent = rospy.get_param('/pedsim_dwa/num_agents')
-    r_goal = rospy.get_param('/pedsim_dwa/robot_goal')
+    #num_agent = rospy.get_param('/pedsim_dwa/num_agents')
+    #r_goal = rospy.get_param('/pedsim_dwa/robot_goal')
+    num_agent = 40
+    r_goal = [-1.0, -1.0]
 
     # initialize ros node
-    rospy.init_node("pedsim_dwa", anonymous=True)
+    rospy.init_node("simple_dwa_lidar", anonymous=True)
 
     try:
         main_node = MainNode(num_agent, r_goal)
