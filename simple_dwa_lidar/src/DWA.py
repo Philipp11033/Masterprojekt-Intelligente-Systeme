@@ -95,8 +95,8 @@ class DWA:
         ox = ob[:, :, 0]
         oy = ob[:, :, 1]
 
-        dx = trajectory[:, None, 0] - ox[:, None]
-        dy = trajectory[:, None, 1] - oy[:, None]
+        dx = trajectory[:, None, 0] - ox
+        dy = trajectory[:, None, 1] - oy
         r = np.hypot(dx, dy)
 
         if config.robot_type == RobotType.circle:
@@ -174,31 +174,14 @@ class DWA:
         r_goal = r_goal
 
         """
-        obs_traj_pos = obs_lidar
-
-        yaw = r_vel_state[2]
-
-        # init obstacles in vicinity with dummy obstacle far away
-        obs_xy_in_proximity_list = [[-1000, -1000]]
-
-        # unit vector at origin, with the same direction as the robot
-        r_norm = np.array([math.cos(yaw), math.sin(yaw)], dtype=np.float)
-        for idx, ob in enumerate(obs_traj_pos[-1, :, :]):
-            # proximity check
-            if np.linalg.norm(r_pos_xy - ob) <= self.config.inner_proximity_radius:
-                obs_xy_in_proximity_list.append(ob)
-
-        all_obs = obs_traj_pos
-
         # current state of the robot given as: [x(m), y(m), theta(rad), v_lin(m/s), v_ang(rad/s)]
         r_curr_state = np.concatenate([r_pos_xy, r_vel_state[2:]])
 
         # best proposed action(here: u) and predicted trajectory calculated
-        best_proposed_action, predicted_trajectory = self.dwa_control(r_curr_state, self.config, r_goal_xy, all_obs)
+        best_proposed_action, predicted_trajectory = self.dwa_control(r_curr_state, self.config, r_goal_xy, obs_lidar)
 
         return np.array([best_proposed_action])
-        
-        
+
 
 if __name__ == '__main__':
     robot_config = ConfigRobot(robot_model="locobot", collision_dist=0.2)
