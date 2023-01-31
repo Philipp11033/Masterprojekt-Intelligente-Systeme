@@ -51,10 +51,13 @@ class MainNode:
 
         # Publishers
         self.pub = rospy.Publisher("/locobot/mobile_base/commands/velocity", Twist, queue_size=10)
+        # self.pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
 
         # Subscribers
         robot_sub = message_filters.Subscriber("/locobot/mobile_base/odom", Odometry)
         lidar_sub = message_filters.Subscriber("/locobot/scan", LaserScan)
+        # robot_sub = message_filters.Subscriber("/odom", Odometry)
+        # lidar_sub = message_filters.Subscriber("/scan", LaserScan)
         ts = message_filters.ApproximateTimeSynchronizer([robot_sub, lidar_sub], queue_size=1, slop=0.1)
         
         ts.registerCallback(self.call_robot)
@@ -71,7 +74,7 @@ class MainNode:
             if(scan.ranges[i] < self.min_dist):
                 self.min_dist = scan.ranges[i]
                 #print(self.min_dist)
-            if(scan.ranges[i] > self.sim_config.inner_proximity_radius):
+            if(scan.ranges[i] > self.sim_config.inner_proximity_radius or scan.ranges[i] == 0 or scan.ranges[i] == inf):
                 x = float('inf') * (-1)#-1000#float('inf')
                 y = float('inf') * (-1)#-1000#float('inf')
             else:
@@ -126,6 +129,14 @@ class MainNode:
             # Create a Twist message and add linear x and angular z values
             self.cmd_vel.linear.x = u[0, 0]
             self.cmd_vel.angular.z = u[0, 1]
+            print("Goal: ")
+            print(self.r_goal)
+            print("Robot Position: ")
+            print(self.r_pos_xy)
+            print("LiDAR Data: ")
+            print(lidar_abs)
+            print("Current State of Robot: ")
+            print(self.r_state)
             print("Publishing: ")
             print(self.cmd_vel)
             # self.pub.publish(self.cmd_vel)
