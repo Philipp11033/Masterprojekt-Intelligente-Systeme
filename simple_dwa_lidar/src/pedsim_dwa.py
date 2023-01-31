@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 
 import numpy as np
-
+from numpy import inf
 
 class MainNode:
     def __init__(self, num_agent, r_goal):
@@ -51,13 +51,10 @@ class MainNode:
 
         # Publishers
         self.pub = rospy.Publisher("/locobot/mobile_base/commands/velocity", Twist, queue_size=10)
-        # self.pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
 
         # Subscribers
         robot_sub = message_filters.Subscriber("/locobot/mobile_base/odom", Odometry)
         lidar_sub = message_filters.Subscriber("/locobot/scan", LaserScan)
-        # robot_sub = message_filters.Subscriber("/odom", Odometry)
-        # lidar_sub = message_filters.Subscriber("/scan", LaserScan)
         ts = message_filters.ApproximateTimeSynchronizer([robot_sub, lidar_sub], queue_size=1, slop=0.1)
         
         ts.registerCallback(self.call_robot)
@@ -66,7 +63,7 @@ class MainNode:
 
     def laserToAbs(self, scan, x_base, y_base, angle_base):
         #self.emergency_stop = False
-        pos_abs = np.ones((int(len(scan.ranges)/ self.scan_steps) , 2)) * np.inf * (-1)
+        pos_abs = np.ones((int(len(scan.ranges)/self.scan_steps), 2)) * np.inf * (-1)
         for i in range(0, len(scan.ranges), self.scan_steps):
             #if(scan.ranges[i] < self.stop_range):
             #    self.emergency_stop = True
@@ -80,7 +77,7 @@ class MainNode:
             else:
                 angle = angle_base - scan.angle_min + (i * scan.angle_increment) #teset
                 y = y_base - (math.sin(angle) * scan.ranges[i])
-                x = x_base -  (math.cos(angle) * scan.ranges[i])
+                x = x_base - (math.cos(angle) * scan.ranges[i])
 
             pos_abs[int(i/self.scan_steps), 0] = x
             pos_abs[int(i/self.scan_steps), 1] = y
@@ -129,30 +126,32 @@ class MainNode:
             # Create a Twist message and add linear x and angular z values
             self.cmd_vel.linear.x = u[0, 0]
             self.cmd_vel.angular.z = u[0, 1]
-            print("Goal: ")
-            print(self.r_goal)
-            print("Robot Position: ")
+            print("\nLiDAR data: ")
+            inf_mask = lidar_abs != np.inf * (-1)
+            np.set_printoptions(linewidth=35)
+            print(lidar_abs[inf_mask])
+            # print(lidar_abs)
+            # print("Goal: ")
+            # print(self.r_goal)
+            print("Robot position: ")
             print(self.r_pos_xy)
-            print("LiDAR Data: ")
-            print(lidar_abs)
-            print("Current State of Robot: ")
-            print(self.r_state)
+            # print("Current state of robot: ")
+            # print(self.r_state)
             print("Publishing: ")
-            print(self.cmd_vel)
+            print(self.cmd_vel.linear.x, self.cmd_vel.angular.z)
             # self.pub.publish(self.cmd_vel)
-            #
-            # if(self.emergency_stop == False):
-            #     self.pub.publish(self.cmd_vel)
-            # else:
+            #if(self.emergency_stop == False):
+            #    self.pub.publish(self.cmd_vel)
+            #else:
             #    self.pub.publish(Twist())
 
 
 if __name__ == '__main__':
     # get command-line arguments
-    #num_agent = rospy.get_param('/pedsim_dwa/num_agents')
-    #r_goal = rospy.get_param('/pedsim_dwa/robot_goal')
-    num_agent = 40
-    r_goal = [-1.0, -1.0]
+    # num_agent = rospy.get_param('/pedsim_dwa/num_agents')
+    # r_goal = rospy.get_param('/pedsim_dwa/robot_goal')
+    num_agent = 10
+    r_goal = [5.5, 0.0]
 
     # initialize ros node
     rospy.init_node("simple_dwa_lidar", anonymous=True)

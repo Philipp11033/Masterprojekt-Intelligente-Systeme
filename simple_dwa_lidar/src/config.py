@@ -22,7 +22,7 @@ class ConfigRobot:
         :param robot_params: dictionary containing robot's capabilities such as max/min-speed and max-accel for angular and linear velocity
         """
         if robot_model == "locobot":
-            self.robot_params = {'max_linear_vel': .5,  # [m/s]
+            self.robot_params = {'max_linear_vel': .3,  # [m/s]
                                  'min_linear_vel': -.1,  # [m/s]
                                  'max_linear_acc': .5,  # [m/ss]
                                  'max_angular_vel': 1.0,  # [rad/s]
@@ -49,13 +49,12 @@ class ConfigSim:
         self.max_accel = self.robot_model['max_linear_acc']  # [m/ss]
         self.max_yaw_rate = self.robot_model['max_angular_vel']  # [rad/s]
         self.max_delta_yaw_rate = self.robot_model['max_angular_acc']  # [rad/ss]
-        
-        
+
         # the radius, in which we consider obstacles
         self.inner_proximity_radius = 2
         self.outer_proximity_radius = 10000
 
-        # TODO: move below parameters somewhere else(e.g. class called Locobot with all these stuff)
+        # TODO: move below parameters somewhere else(e.g. class called locobot with all these stuff)
         # robot attributes
         self.robot_type = RobotType.circle
         self.robot_radius = 0.35  # [m] for collision check
@@ -69,7 +68,7 @@ class ConfigSim:
         self.pred_time_steps = 2
         self.predict_time = self.pred_time_steps * 0.4  # 1.7s for move_base we tested 4 * 0.4, but best results with 2 * 0.4
         self.to_goal_cost_gain = 0.5
-        self.speed_cost_gain = 4
+        self.speed_cost_gain = 5
         self.obstacle_cost_gain = 3
         self.robot_stuck_flag_cons = 0.001  # constant to prevent robot stuck
 

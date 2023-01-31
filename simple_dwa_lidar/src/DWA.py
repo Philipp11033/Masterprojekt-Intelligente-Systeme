@@ -128,10 +128,10 @@ class DWA:
                 to_goal_cost = config.to_goal_cost_gain * self.calc_to_goal_cost(trajectory, goal)
                 speed_cost = config.speed_cost_gain * (config.max_speed - trajectory[-1, 3])
                 ob_cost = config.obstacle_cost_gain * self.calc_obstacle_cost(trajectory, ob, config)
-                #print("goal:" + str(to_goal_cost))
-                #print("speed:" + str(speed_cost))
-                #print("ob:" + str(ob_cost))
-               # print("-------")
+                # print("goal:" + str(to_goal_cost))
+                # print("speed:" + str(speed_cost))
+                # print("ob:" + str(ob_cost))
+                # print("-------")
                 final_cost = to_goal_cost + speed_cost + ob_cost
                 # search minimum trajectory
                 if min_cost >= final_cost:
