@@ -7,7 +7,7 @@ import math
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
-from config import ConfigRobot, ConfigSim
+from config import ConfigRobot, ConfigNav
 from DWA import DWA
 from datetime import datetime, timedelta
 
@@ -40,7 +40,7 @@ class MainNode:
 
         # configurations for the Robot and Simulation
         self.robot_config = ConfigRobot(robot_model="locobot", collision_dist=0.2)
-        self.sim_config = ConfigSim(robot_config=self.robot_config)
+        self.sim_config = ConfigNav(robot_config=self.robot_config)
 
         # initialize DWA, once we know the number of agents
         self.dwa = DWA(sim_config=self.sim_config, num_agent=self.num_agent)

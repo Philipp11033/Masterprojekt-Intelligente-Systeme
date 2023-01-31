@@ -12,11 +12,11 @@ class RobotType(Enum):
 
 class ConfigRobot:
     """
-    Class to configure the attributes of the robot for DWA. The attributes are contained as a dictionary.
+    Class to configure the properties of the robot for DWA. The properties are contained inside a dictionary.
     """
     def __init__(self, robot_model: str = "locobot", collision_dist: float = 0.35, robot_params: dict = None):
         """
-        Simple constructor to initialize the configuration of the robot.\n
+        Simple constructor to set the properties of the robot.\n
         :param robot_model: name of the robot model
         :param collision_dist: baseline distance to obstacles that the robot should always avoid. given in meters
         :param robot_params: dictionary containing robot's capabilities such as max/min-speed and max-accel for angular and linear velocity
@@ -32,14 +32,14 @@ class ConfigRobot:
             raise ValueError("There is no other robot we are working with, just use locobot dummy")
 
 
-class ConfigSim:
+class ConfigNav:
     """
-    Class to configure the simulation. Contains cost gains and time tick for motion prediction. Uses configuration from
-    ConfigRobot class.
+    Class to configure the navigation of the robot. Contains cost gains and time tick for motion prediction. Uses
+    configuration from ConfigRobot class.
     """
     def __init__(self, robot_config: ConfigRobot):
         """
-        Simple constructor to initialize the configuration of the simulation.\n
+        Simple constructor to initialize the configuration of navigation.\n
         :param robot_config: ConfigRobot object containing parameters of
         """
         # robot parameters
@@ -51,33 +51,36 @@ class ConfigSim:
         self.max_delta_yaw_rate = self.robot_model['max_angular_acc']  # [rad/ss]
 
         # the radius, in which we consider obstacles
-        self.inner_proximity_radius = 2
-        self.outer_proximity_radius = 10000
+        self.inner_proximity_radius = 2  # [m]
 
-        # TODO: move below parameters somewhere else(e.g. class called locobot with all these stuff)
         # robot attributes
         self.robot_type = RobotType.circle
         self.robot_radius = 0.35  # [m] for collision check
-        self.robot_width = 0.35  # [m] for collision check
-        self.robot_length = 0.35  # [m] for collision check
 
-        # simulation params
+        ### navigation params
+
+        # sampling resolutions (to be used when choosing & evaluating trajectories within the Dynamic Window)
         self.v_resolution = 0.025  # [m/s]
         self.yaw_rate_resolution = 0.025  # sim_granularity like in move_base
         self.dt = 0.4  # [s] Time tick for motion prediction
         self.pred_time_steps = 2
+
+        # max. allowed time for motion prediction (predict_time / dt -> no. predictions per sampled (v_lin, v_ang) pair)
         self.predict_time = self.pred_time_steps * 0.4  # 1.7s for move_base we tested 4 * 0.4, but best results with 2 * 0.4
-        self.to_goal_cost_gain = 0.5
-        self.speed_cost_gain = 5
-        self.obstacle_cost_gain = 3
         self.robot_stuck_flag_cons = 0.001  # constant to prevent robot stuck
 
-    @property
-    def robot_type(self):
-        return self._robot_type
+        ### Prediction model parameters
+        self.pred_time_steps = 2
 
-    @robot_type.setter
-    def robot_type(self, value):
-        if not isinstance(value, RobotType):
-            raise TypeError("robot_type must be an instance of RobotType")
-        self._robot_type = value
+        ### weights for cost calculation
+
+        # weight for the angle difference between the current "predicted" trajectory's angle and the optimal angle to
+        # reach the goal
+        self.to_goal_cost_gain = 0.5
+
+        # weight for the difference between the linear velocity of the current "predicted" trajectory and the max
+        # allowed linear velocity
+        self.speed_cost_gain = 5
+
+        # weight for (1 / dist. to closest obstacle)
+        self.obstacle_cost_gain = 3
