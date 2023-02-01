@@ -1,5 +1,0 @@
-Create a Pedsim/Gazebo scenario:
-
-1. Create a scenario xxxx.xml file in pedsim_ros/pedsim_simulator/scenarios
-2. Run: "rosrun pedsim_gazebo_plugin pedsim_to_gazbo_world.py" and enter the scenerio file name (with xxxx.xml)
-3. Run: "roslaunch pedsim_gazebo_plugin" xxxx.launch
