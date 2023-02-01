@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="PYTHON_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$/../../devel/lib/python3/dist-packages">
+      <excludeFolder url="file://$MODULE_DIR$/../../devel/lib/python3/dist-packages/rqt_robot_steering" />
+      <excludeFolder url="file://$MODULE_DIR$/../../devel/lib/python3/dist-packages/rqt_gui" />
+      <excludeFolder url="file://$MODULE_DIR$/../../devel/lib/python3/dist-packages/turtlebot3_teleop" />
+      <excludeFolder url="file://$MODULE_DIR$/../../devel/lib/python3/dist-packages/zed_nodelets" />
+      <excludeFolder url="file://$MODULE_DIR$/../../devel/lib/python3/dist-packages/pedsim_visualizer" />
+      <excludeFolder url="file://$MODULE_DIR$/../../devel/lib/python3/dist-packages/pedsim_simulator" />
+    </content>
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
+    </content>
+    <content url="file:///opt/ros/noetic/lib/python3/dist-packages">
+      <excludeFolder url="file:///opt/ros/noetic/lib/python3/dist-packages/cv_bridge-1.16.2.egg-info" />
+      <excludeFolder url="file:///opt/ros/noetic/lib/python3/dist-packages/diagnostic_analysis" />
+      <excludeFolder url="file:///opt/ros/noetic/lib/python3/dist-packages/diagnostic_analysis-1.11.0.egg-info" />
+      <excludeFolder url="file:///opt/ros/noetic/lib/python3/dist-packages/diagnostic_common_diagnostics-1.11.0.egg-info" />
+      <excludeFolder url="file:///opt/ros/noetic/lib/python3/dist-packages/diagnostic_common_diagnostics" />
+      <excludeFolder url="file:///opt/ros/noetic/lib/python3/dist-packages/controller_manager_msgs-0.19.6.egg-info" />
+      <excludeFolder url="file:///opt/ros/noetic/lib/python3/dist-packages/controller_manager-0.19.6.egg-info" />
+      <excludeFolder url="file:///opt/ros/noetic/lib/python3/dist-packages/controller_manager" />
+      <excludeFolder url="file:///opt/ros/noetic/lib/python3/dist-packages/cv_bridge" />
+      <excludeFolder url="file:///opt/ros/noetic/lib/python3/dist-packages/diagnostic_updater" />
+      <excludeFolder url="file:///opt/ros/noetic/lib/python3/dist-packages/diagnostic_updater-1.11.0.egg-info" />
+    </content>
+    <orderEntry type="jdk" jdkName="Python 3.8 (dwa_venv)" jdkType="Python SDK" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>

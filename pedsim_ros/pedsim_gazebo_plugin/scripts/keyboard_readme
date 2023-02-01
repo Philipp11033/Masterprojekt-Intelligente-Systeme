@@ -1,0 +1,3 @@
+rosservice call /gazebo/unpause_physics
+
+rosrun pedsim_gazebo keyboard_control.py

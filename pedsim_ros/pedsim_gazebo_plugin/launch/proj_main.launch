@@ -1,0 +1,90 @@
+<launch>
+
+  <arg name="robot_model"                       default="locobot_base"/>
+  <arg name="robot_name"                        default="locobot"/>
+  <arg name="arm_model"                         default="$(eval 'mobile_' + arg('robot_model').split('_')[1])"/>
+  <arg name="show_lidar"                        default="true"/>
+  <arg name="show_gripper_bar"                  default="false"/>
+  <arg name="show_gripper_fingers"              default="false"/>
+  <arg name="external_urdf_loc"                 default=""/>
+  <arg name="use_rviz"                          default="false"/>
+  <arg name="rviz_frame"                        default="$(arg robot_name)/base_footprint"/>
+  <arg name="gui"                               default="true"/>
+  <arg name="debug"                             default="false"/>
+  <arg name="paused"                            default="false"/>
+  <arg name="recording"                         default="false"/>
+  <arg name="use_sim_time"                      default="true"/>
+  <arg name="use_position_controllers"          default="false"/>
+  <arg name="use_trajectory_controllers"        default="false"/>
+  <arg name="dof"                               default="5"/>
+  <arg name="kbd_teleop" default="false"/>
+  <arg name="rqt_teleop" default="true"/>
+  <arg name="visualize" default="true"/>
+  <arg name="with_robot" default="true"/>
+  <arg name="absolute_loco" default="true"/>
+
+  <arg name="simulation_factor" default="1.0"/> <!-- Speed up -->
+  <arg name="update_rate" default="25.0"/> <!-- Hz -->
+
+  <env name="GAZEBO_RESOURCE_PATH"              value="$(find interbotix_xslocobot_gazebo)"/>
+
+  <rosparam file="$(find interbotix_xslocobot_gazebo)/config/locobot_gazebo_controllers.yaml" command="load" ns="$(arg robot_name)"/>
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="gui"                               value="$(arg gui)" />
+    <arg name="debug"                             value="$(arg debug)" />
+    <arg name="paused"                            value="$(arg paused)"/>
+    <arg name="recording"                         value="$(arg recording)"/>
+    <arg name="use_sim_time"                      value="$(arg use_sim_time)"/>
+    <arg name="world_name" value="$(find pedsim_gazebo_plugin)/worlds/proj_main.world"/>
+  </include>
+
+
+  <include file="$(find interbotix_xslocobot_descriptions)/launch/xslocobot_description.launch">
+    <arg name="robot_model"                       value="$(arg robot_model)"/>
+    <arg name="robot_name"                        value="$(arg robot_name)"/>
+    <arg name="show_lidar"                        value="$(arg show_lidar)"/>
+    <arg name="show_gripper_bar"                  value="$(arg show_gripper_bar)"/>
+    <arg name="show_gripper_fingers"              value="$(arg show_gripper_fingers)"/>
+    <arg name="external_urdf_loc"                 value="$(arg external_urdf_loc)"/>
+    <arg name="use_rviz"                          value="$(arg use_rviz)"/>
+    <arg name="rviz_frame"                        value="$(arg rviz_frame)"/>
+  </include>
+
+
+  <!-- Simulator -->
+  <include file="$(find pedsim_simulator)/launch/simulator.launch">
+    <arg name="kbd_teleop" value="$(arg kbd_teleop)"/>
+    <arg name="rqt_teleop" value="$(arg rqt_teleop)"/>
+    <arg name="scene_file" value="$(find pedsim_simulator)scenarios/proj_main.xml"/>
+    <arg name="with_robot" value="$(arg with_robot)"/>
+    <arg name="simulation_factor" value="$(arg simulation_factor)"/>
+    <arg name="update_rate" value="$(arg update_rate)"/>
+    <arg name="default_queue_size" value="10"/>
+    <arg name="max_robot_speed" value="1.5"/>
+    <arg name="robot_mode" value="1"/>
+    <arg name="enable_groups" value="true"/>
+    <arg name="pose_initial_x" value="0"/>
+    <arg name="pose_initial_y" value="0"/>
+    <arg name="pose_initial_theta" value="0"/>
+    <arg name="absolute_loco"  value="$(arg absolute_loco)"/>"/>
+  </include>
+
+  <!-- Visualizer -->
+  <include file="$(find pedsim_visualizer)/launch/visualizer.launch"/>
+
+  <!-- Rviz -->
+  <node pkg="rviz" type="rviz" name="rviz" args="-d $(find pedsim_simulator)/rviz/social_contexts_activities.rviz" if="$(arg visualize)"/>
+  <node
+    name="urdf_spawner"
+    pkg="gazebo_ros"
+    type="spawn_model"
+    respawn="false"
+    output="screen"
+    ns="$(arg robot_name)"
+	  args="-urdf -model $(arg robot_name) -param robot_description"/>
+	  
+  <node pkg="pedsim_gazebo_plugin" type="spawn_pedsim_agents.py" name="spawn_pedsim_agents"  output="screen"/>
+
+
+</launch>

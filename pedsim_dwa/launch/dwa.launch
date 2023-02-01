@@ -1,0 +1,11 @@
+<launch>
+    <arg name="hist" default="7"/>
+    <arg name="num_agents" default="40"/>
+    <arg name="robot_goal" default="27 27"/>
+    <arg name="fov" default="120"/>
+    <node pkg="pedsim_dwa" type="pedsim_dwa.py" name="pedsim_dwa" output="screen">
+        <param name="num_agents" value="$(arg num_agents)" />
+        <param name="robot_goal" value="$(arg robot_goal)" />
+        <param name="fov" value="$(arg fov)" />
+    </node>
+</launch>

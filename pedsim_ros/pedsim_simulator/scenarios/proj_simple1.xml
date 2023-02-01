@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scenario>
+  <!--Obstacles-->
+  <obstacle x1="-5" y1="-5" x2="-5" y2="5"/>
+  <obstacle x1="-5" y1="5" x2="45" y2="5"/>
+  <obstacle x1="45" y1="5" x2="45" y2="-5"/>
+  <obstacle x1="-5" y1="-5" x2="45" y2="-5"/>
+  
+  
+  <waypoint id="start" x="40" y="0" r="5"/>
+  <waypoint id="stop" x="0" y="0" r="5"/>
+  
+	
+  <waypoint id="line1" x="20" y="-4" r="1"/>
+  <waypoint id="line2" x="20" y="4" r="1"/>
+  
+   <waypoint id="line3" x="10" y="-4" r="1"/>
+  <waypoint id="line4" x="10" y="4" r="1"/> 
+   <waypoint id="line5" x="5" y="-4" r="1"/>
+  <waypoint id="line6" x="5" y="4" r="1"/> 
+    <agent x="0" y="0" n="1" dx="0" dy="0" type="2">
+    </agent>
+
+   <agent x="40" y="0" n="15" dx="5" dy="5" type="0">
+        <addwaypoint id="start"/>
+        <addwaypoint id="stop"/>
+    </agent>
+    
+    
+   <agent x="10" y="0" n="15" dx="5" dy="5" type="0">
+        <addwaypoint id="stop"/>
+        <addwaypoint id="start"/>
+    </agent>
+    
+
+    <agent x="20" y="0" n="10" dx="2" dy="2" type="0">
+        <addwaypoint id="line1"/>
+        <addwaypoint id="line2"/>
+    </agent>
+    <!--
+    <agent x="10" y="0" n="10" dx="2" dy="2" type="0">
+        <addwaypoint id="line3"/>
+        <addwaypoint id="line4"/>
+    </agent>
+    
+    <agent x="5" y="0" n="10" dx="2" dy="2" type="0">
+        <addwaypoint id="line5"/>
+        <addwaypoint id="line6"/>
+    </agent>
+   -->
+</scenario>
