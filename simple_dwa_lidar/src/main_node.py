@@ -26,11 +26,7 @@ class MainNode:
         :param r_goal: goal of the robot given as
         """
         self.r_state = np.zeros(5)  # v_x, v_y, yaw, v_t, omega_t
-        # self.r_goal = np.array(list(map(float, r_goal.split())))  # goal_x, goal_y
-
-        self.r_goal = np.array(r_goal)
-
-
+        self.r_goal = np.array(list(map(float, r_goal.split())))  # goal_x, goal_y
         self.num_agent = num_agent
         self.cmd_vel = Twist()
 
@@ -165,10 +161,8 @@ class MainNode:
 
 if __name__ == '__main__':
     # get command-line arguments
-    # num_agent = rospy.get_param('/pedsim_dwa/num_agents')
-    # r_goal = rospy.get_param('/pedsim_dwa/robot_goal')
-    num_agent = 10
-    r_goal = [5.5, 0.0]
+    num_agent = rospy.get_param('/simple_dwa_lidar/num_agents')
+    r_goal = rospy.get_param('/simple_dwa_lidar/robot_goal')
 
     # initialize ros node
     rospy.init_node("simple_dwa_lidar", anonymous=True)
