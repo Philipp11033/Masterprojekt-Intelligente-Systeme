@@ -137,9 +137,9 @@ class DWA:
         cost_angle = optimal_angle - trajectory[-1, 2]  # [rad]
 
         # original implementation's line below, which is equivalent to just taking the absolute value of the cost_angle
-        # cost = abs(math.atan2(math.sin(cost_angle), math.cos(cost_angle)))  # [rad]
+        cost = abs(math.atan2(math.sin(cost_angle), math.cos(cost_angle)))  # [rad]
         # we are interested in how much the diff. is, not in which direction the difference is -> so, take absolute val.
-        cost = abs(cost_angle)
+        # cost = abs(cost_angle)
 
         return cost
 
@@ -184,7 +184,7 @@ class DWA:
         :return:
         """
         # init variables
-        r_curr_state_init = np.copy(r_curr_state)
+        r_curr_state_init = r_curr_state[:]
         min_cost = float("inf")
         best_proposed_action = [0.0, 0.0]
         best_trajectory = np.array([r_curr_state])
@@ -207,7 +207,7 @@ class DWA:
                 speed_cost = self.config.speed_cost_gain * (self.config.max_speed - trajectory[-1, 3])
 
                 # calc. 1 / dist. to closest obstacle
-                ob_cost = self.config.obstacle_cost_gain * self.calc_obstacle_cost(trajectory, )
+                ob_cost = self.config.obstacle_cost_gain * self.calc_obstacle_cost(trajectory, obs_xy)
 
                 # total cost of the trajectory
                 final_cost = to_goal_cost + speed_cost + ob_cost
@@ -223,6 +223,7 @@ class DWA:
                             and abs(r_curr_state[3]) < self.config.robot_stuck_flag_cons:
                         # to ensure the robot does not get stuck in best v=0 m/s (in front of an obstacle) and
                         # best omega=0 rad/s (heading to the goal with angle difference of 0)
+                        best_proposed_action[0] = 0
                         best_proposed_action[1] = -self.config.max_yaw_rate  # Bug in original code? Corrected to max_yaw_rate instead
 
         return best_proposed_action, best_trajectory
@@ -266,7 +267,7 @@ class DWA:
         r_curr_state = np.concatenate([r_pos_xy, r_vel_state[2:]])
 
         # best proposed action(here: u) and predicted trajectory calculated
-        best_proposed_action, predicted_trajectory = self.dwa_control(r_curr_state, self.config, r_goal_xy, obs_lidar)
+        best_proposed_action, predicted_trajectory = self.dwa_control(r_curr_state, r_goal_xy, obs_lidar)
 
         return np.array([best_proposed_action])
 

@@ -83,4 +83,4 @@ class ConfigNav:
         self.speed_cost_gain = 5
 
         # weight for (1 / dist. to closest obstacle)
-        self.obstacle_cost_gain = 3
+        self.obstacle_cost_gain = 2
