@@ -7,9 +7,10 @@ import math
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
+from visualization_msgs.msg import MarkerArray
+import tf
 from config import ConfigRobot, ConfigNav
 from DWA import DWA
-from datetime import datetime, timedelta
 
 import numpy as np
 from numpy import inf
@@ -19,16 +20,31 @@ class MainNode:
     """
     Main Node class to manage all information
     """
-    def __init__(self, num_agent, r_goal):
+    def __init__(self, num_agent, r_goal, hist):
         """
         Constructor to initialize all parameters.\n
         :param num_agent: max. number of agents to keep track of
         :param r_goal: goal of the robot given as
+        :param hist: number of ticks into the past we keep track of for humans
         """
         self.r_state = np.zeros(5)  # v_x, v_y, yaw, v_t, omega_t
         self.r_goal = np.array(list(map(float, r_goal.split())))  # goal_x, goal_y
         self.num_agent = num_agent
+        self.hist = hist
         self.cmd_vel = Twist()
+
+        # calculate neighboring index(diff. representation of an adjacency matrix
+        self.neigh_idx = np.ones((self.num_agent * (self.num_agent - 1), 3), dtype=np.int)
+        k = 0
+        for i in range(self.num_agent):
+            for j in range(self.num_agent):
+                if i != j:
+                    self.neigh_idx[k, :] = np.array([i, j, j])
+                    k += 1
+
+        # current position of all pedestrians
+        self.ped_pos_xy_rf = np.ones((hist + 1, self.num_agent, 2)) * -1000
+        self.ped_pos_xy_wf = np.ones((hist + 1, self.num_agent, 2)) * -1000
 
         # LiDAR related params
         self.min_measurements = 25
@@ -51,13 +67,16 @@ class MainNode:
         # Node cycle rate (in Hz).
         self.loop_rate = rospy.Rate(10)
 
+        self.tf_listener = tf.TransformListener()
+
         # Publishers
         self.pub = rospy.Publisher("/locobot/mobile_base/commands/velocity", Twist, queue_size=10)
 
         # Subscribers
         robot_sub = message_filters.Subscriber("/locobot/mobile_base/odom", Odometry)
         lidar_sub = message_filters.Subscriber("/locobot/scan", LaserScan)
-        ts = message_filters.ApproximateTimeSynchronizer([robot_sub, lidar_sub], queue_size=1, slop=0.1)
+        obj_sub = rospy.Subscriber("/interpolated_history_position", MarkerArray, self.call_robot)
+        ts = message_filters.ApproximateTimeSynchronizer([robot_sub, lidar_sub, obj_sub], queue_size=1, slop=0.1)
 
         ts.registerCallback(self.call_robot)
 
@@ -91,7 +110,7 @@ class MainNode:
 
         return pos_abs
 
-    def call_robot(self, robot_msg, lidar_sub):
+    def call_robot(self, robot_msg, lidar_sub, zed_camera_msg):
         """
         Callback function to work on the LiDAR data as well as the current position of the robot\n
         :param robot_msg: Odometry information of the robot
@@ -117,6 +136,31 @@ class MainNode:
         # convert lidar values to absolute values
         lidar_abs = self.laserToAbs(lidar_sub, robot_msg.pose.pose.position.x, robot_msg.pose.pose.position.y, yaw)
         lidar_abs = np.expand_dims(lidar_abs, 0)
+
+
+        # extract translation and rotation for robot reference to robot world coordinates
+        try:
+            (trans, rot) = self.listener.lookupTransform('/map', '/tf_base_link', rospy.Time(0))
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            pass
+
+        # extract positions of humans(in robot frame)
+        for (i, marker) in enumerate(zed_camera_msg.markers):
+            for (j, point) in enumerate(marker.points):
+                self.ped_pos_xy_rf[j, i, :] = [point.x, point.y]
+
+                # 4d positional vector
+                pos_vec = np.array([point.x, point.y, 0, 1])
+
+                # 4x4 transformation matrix
+                transform_matrix = np.array([[rot, rot, rot, trans], [rot, rot, rot, trans],
+                                             [rot, rot, rot, trans], [0, 0, 0, 1]])
+
+                # 4d vector in world frame
+                out = np.matmul(transform_matrix, pos_vec)
+
+                self.ped_pos_xy_wf[j, i, :] = [out[0], out[1]]
+
 
         if np.linalg.norm(self.r_goal - self.r_pos_xy) <= self.sim_config.robot_radius:
             # if we have reached the goal, stop
@@ -149,7 +193,7 @@ class MainNode:
             self.r_state[4] = omega_t
 
             # calculate best proposed action using DWA
-            u = self.dwa.predict(obs_traj_pos=-1, obs_lidar=lidar_abs, r_pos_xy=self.r_pos_xy,
+            u = self.dwa.predict(obs_traj_pos=self.ped_pos_xy_wf, obs_lidar=lidar_abs, r_pos_xy=self.r_pos_xy,
                                  r_goal_xy=self.r_goal, r_vel_state=self.r_state)
 
             # Create a Twist message and add linear x and angular z values
@@ -161,14 +205,15 @@ class MainNode:
 
 if __name__ == '__main__':
     # get command-line arguments
-    num_agent = rospy.get_param('/simple_dwa_lidar/num_agents')
-    r_goal = rospy.get_param('/simple_dwa_lidar/robot_goal')
+    num_agent = rospy.get_param('/dwa_w_prediction/num_agents')
+    r_goal = rospy.get_param('/dwa_w_prediction/robot_goal')
+    hist = rospy.get_param('/dwa_w_prediction/hist')
 
     # initialize ros node
-    rospy.init_node("simple_dwa_lidar", anonymous=True)
+    rospy.init_node("dwa_w_prediction", anonymous=True)
 
     try:
-        main_node = MainNode(num_agent, r_goal)
+        main_node = MainNode(num_agent, r_goal, hist)
     except rospy.ROSInternalException:
         rospy.loginfo("Exit due to exception")
         pass
