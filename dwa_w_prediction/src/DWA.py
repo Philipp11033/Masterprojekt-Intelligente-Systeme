@@ -5,10 +5,13 @@ Reading the Code and its documentation:
 - All coordinates are given/worked upon as world coordinates unless stated otherwise in the documentation/comments.
 - Square brackets('[', ']') in comments and documentation refer to a numpy array unless stated otherwise.
 """
+import os
+import torch
 import warnings
 import math
 import numpy as np
 from config import ConfigRobot, ConfigNav, RobotType
+from model.AR_fast import TrajectoryGeneratorAR
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -17,15 +20,70 @@ class DWA:
     """
         Class with a straightforward Dynamic Window Approach implementation.
     """
-    def __init__(self, sim_config: ConfigNav, num_agent: int):
+    def __init__(self, sim_config: ConfigNav, num_agent: int, hist: int, neigh_index):
         """
         Simple Constructor to initialize relevant parameters.\n
         :param sim_config: configuration object for the chosen robot and navigation params
         :param num_agent: max. number of agents to keep track of
+        :param hist: number of ticks into the past we keep track of for humans
+        :param neigh_index: neighbouring matrix
         """
         self.robot_model = sim_config.robot_model
         self.num_agent = num_agent
         self.config = sim_config
+        self.hist = hist
+        self.neigh_index = neigh_index
+
+        # size of each batch
+        self.sample_batch = 1
+
+        # device to run the neural network (set to cuda if there is a cuda compatible cpu, else set to cpu)
+        if torch.cuda.is_available():
+            print("Found cuda device: ", torch.cuda.get_device_name(0))
+            self.device = 'cuda'
+        else:
+            print("Using CPU")
+            self.device = 'cpu'
+
+        self.pred_time_steps = self.config.pred_time_steps + 1
+        # initialize the model
+        self.pred_model_ar = self.get_model(self.sample_batch)
+
+    def get_model(self, sample_batch):
+        _dir = os.path.dirname(__file__) or '.'
+        _dir = _dir + "/model/weights/"
+
+        # path to the pre-trained neural network's weights
+        checkpoint_path = _dir + 'SIMNoGoal-univ_fast_AR2/checkpoint_with_model.pt'
+
+        # load the weights
+        if self.device == 'cpu':
+            checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+        else:
+            checkpoint = torch.load(checkpoint_path)
+
+        # initialize model
+        model_ar = TrajectoryGeneratorAR(num_agent=self.num_agent,
+                                         robot_params_dict=self.config.robot_model,
+                                         dt=self.config.dt,
+                                         collision_distance=0.2,  # not used inside the model?
+                                         obs_len=self.hist + 1,
+                                         # agent_hist(always 7/no. frames into the past) + 1(for predicting robot)
+                                         predictions_steps=self.pred_time_steps,
+                                         sample_batch=sample_batch,
+                                         device=self.device)
+
+        # set the weights
+        model_ar.load_state_dict(checkpoint["best_state"])
+
+        # move the device to gpu
+        if self.device == 'cuda':
+            model_ar.cuda()
+
+        # set the model to evaluation mode as we are not going to train it
+        model_ar.eval()
+
+        return model_ar
 
     def dwa_control(self, r_curr_state: np.ndarray, r_goal_xy: np.ndarray, obs_xy: np.ndarray):
         """
@@ -154,6 +212,13 @@ class DWA:
         ox = obs_xy[:, :, 0]
         oy = obs_xy[:, :, 1]
 
+        if obs_xy.shape[0] > 1:
+            # IMPORTANT: duplicate the first row of trajectory, because the first two rows of ox,oy
+            # correspond to the obstacles in red and green area respectively, and the first row of the
+            # trajectory contains the current position of the robot
+            # trajectory = np.concatenate((np.expand_dims(trajectory[3], axis=0), trajectory), axis=0)
+            trajectory = np.concatenate((np.expand_dims(trajectory[3], axis=0), trajectory), axis=0)
+
         # calculate dist to the robot(in every robot state for the current trajectory) in x and y axis
         dx = trajectory[:, None, 0] - ox
         dy = trajectory[:, None, 1] - oy
@@ -266,8 +331,41 @@ class DWA:
         # current state of the robot given as: [x(m), y(m), theta(rad), v_lin(m/s), v_ang(rad/s)]
         r_curr_state = np.concatenate([r_pos_xy, r_vel_state[2:]])
 
+        obs_xy_in_fov = obs_traj_pos
+        with torch.no_grad():
+            # convert arrays into tensors
+            obs_traj_pos_fov = torch.from_numpy(obs_xy_in_fov).to(self.device)
+            neigh_index = torch.from_numpy(self.neigh_index).to(self.device)
+
+            # calculation of relative traj from obs_traj_pos(Martin's magical code)
+            mask_rel = torch.where(obs_traj_pos_fov != 0, True, False)
+            traj_rel = torch.zeros_like(obs_traj_pos_fov)
+            mask_rel_first_element = mask_rel.logical_not() * 999.99
+            obs_traj_pos_filled = obs_traj_pos_fov + mask_rel_first_element
+            traj_rel[1:] = (obs_traj_pos_filled[1:] - obs_traj_pos_filled[:-1])
+            traj_rel = torch.where(traj_rel < -300, torch.zeros_like(obs_traj_pos_fov), traj_rel) * mask_rel
+
+            # forward propagation
+            pred_traj_rel, _, _ = self.pred_model_ar(traj_rel=traj_rel.float(),
+                                                     obs_traj_pos=obs_traj_pos_fov.float(),
+                                                     nei_index=neigh_index)
+
+        # conversion from relative to absolute trajectory
+        pred_traj_abs = torch.cumsum(pred_traj_rel.cpu(), dim=0) + obs_traj_pos[-1]
+
+        # filler array for prediction
+        neigh_predicted = np.ones([self.pred_time_steps + 1, self.num_agent, 2]) * -1000
+
+        # add current positions of pedestrians(green area - in FOV) to the array
+        neigh_predicted[0, 0:obs_traj_pos_fov.shape[1]] = obs_traj_pos_fov[-1, :].cpu().numpy()
+
+        # add predicted positions to the array
+        neigh_predicted[1:, 0:obs_traj_pos_fov.shape[1]] = pred_traj_abs.cpu().numpy()
+
+        neigh = np.concatenate((obs_lidar, neigh_predicted), axis=0)
+
         # best proposed action(here: u) and predicted trajectory calculated
-        best_proposed_action, predicted_trajectory = self.dwa_control(r_curr_state, r_goal_xy, obs_lidar)
+        best_proposed_action, predicted_trajectory = self.dwa_control(r_curr_state, r_goal_xy, neigh)
 
         return np.array([best_proposed_action])
 
