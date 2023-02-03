@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>simple_dwa_lidar</name>
+  <name>dwa_w_prediction</name>
   <version>0.0.0</version>
-  <description>The simple_dwa_lidar package</description>
+  <description>The dwa with prediction package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
