@@ -4,7 +4,6 @@ import sys
 import rospy
 import message_filters
 import math
-import pyautogui
 from sensor_msgs.msg import LaserScan
 from pedsim_msgs.msg import AgentStates
 from geometry_msgs.msg import Twist
