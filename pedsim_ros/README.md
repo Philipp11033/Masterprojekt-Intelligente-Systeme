@@ -6,6 +6,7 @@ Create a Pedsim/Gazebo scenario:
 2. Run: "rosrun pedsim_gazebo_plugin pedsim_to_gazbo_world.py" and enter the scenerio file name (with xxxx.xml)
 3. Run: "roslaunch pedsim_gazebo_plugin" xxxx.launch
 
+Pedsim source: https://github.com/srl-freiburg/pedsim_ros
 
 # Original Readme
 <img src=https://github.com/srl-freiburg/pedsim_ros/blob/master/pedsim_simulator/images/crowd1.png width=400/> | <img src=https://github.com/srl-freiburg/pedsim_ros/blob/master/pedsim_simulator/images/costmap.png width=400/>
