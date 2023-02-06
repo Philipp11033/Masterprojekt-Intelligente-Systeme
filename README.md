@@ -14,7 +14,16 @@ For prediction model: compatible GPU with CUDA drivers
 4. Install the interbotic locobot package: Run the commands under "Control Software Installation" but replace "create3" with "kobuki"
   https://www.trossenrobotics.com/docs/interbotix_xslocobots/getting_started/user_guide.html
 5. Copy the pedsim_dwa and pedsim_ros folders to your catkin workspace (in the src folder)
-6. Run catkin_make in your catkin workspace
+6. Run catkin_make in your catkin workspace. If you have problems sourcing the two workspaces, a solution can be found here: https://answers.ros.org/question/205976/sourcing-from-multiple-workspaces/
+7. pip install -r requirements.txt
 
-8. Run for example: "roslaunch pedsim_gazebo_plugin proj_main.launch"
+Setup finished!
+
+To run the simulation:
+e.g.: "roslaunch pedsim_gazebo_plugin proj_main.launch"
+
+To start the navigation:
+"roslaunch pedsim_dwa dwa.launch"
+
+More information in the READMEs in the Folders
   
