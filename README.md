@@ -18,6 +18,8 @@ For prediction model: compatible GPU with CUDA drivers
 6. Run catkin_make in your catkin workspace. If you have problems sourcing the two workspaces, a solution can be found here: https://answers.ros.org/question/205976/sourcing-from-multiple-workspaces/
 7. pip install -r requirements.txt
 
+(depending on the cofiguration, the package python-is-python3 could be neccessary) (run: sudo apt-get install python-is-python3)
+
 Setup finished!
 
 To run the simulation:
