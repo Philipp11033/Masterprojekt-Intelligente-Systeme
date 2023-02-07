@@ -85,7 +85,7 @@ class DWA:
 
         return model_ar
 
-    def dwa_control(self, r_curr_state: np.ndarray, r_goal_xy: np.ndarray, obs_xy: np.ndarray):
+    def dwa_control(self, r_curr_state: np.ndarray, r_goal_xy: np.ndarray, obs_lidar, neigh_predicted):
         """
         Main function for Dynamic Window Approach that calls other necessary functions.\n
         :param r_curr_state: current state of the robot given as: [x(m), y(m), omega(rad), v_r(m/s), v_omega(rad/s)]
@@ -96,7 +96,7 @@ class DWA:
         # dynamic window returned here as a list: [v_r_min, v_r_max, v_omega_min, v_omega_max]
         dyn_window = self.calc_dynamic_window(r_curr_state)
 
-        proposed_action, trajectory = self.calc_control_and_trajectory(r_curr_state, dyn_window, r_goal_xy, obs_xy)
+        proposed_action, trajectory = self.calc_control_and_trajectory(r_curr_state, dyn_window, r_goal_xy, obs_lidar, neigh_predicted)
         return proposed_action, trajectory
 
     @staticmethod
@@ -201,44 +201,66 @@ class DWA:
 
         return cost
 
-    def calc_obstacle_cost(self, trajectory: np.ndarray, obs_xy: np.ndarray):
+    def calc_obstacle_cost(self, trajectory: np.ndarray, obs_lidar, neigh_predicted):
         """
         Calculates the cost to the goal with respect to the angle difference.\n
         :param trajectory: numpy array of all robot states for "current" prediction(aka. trajectory of robot in prediction)
         :param obs_xy: numpy array of all positions of every obstacle in world coordinate system
         :return: dist of the closest obstacle to the robot (specifically: 1 / min_r)
         """
-        # extract x and y positions of all obstacles
-        ox = obs_xy[:, :, 0]
-        oy = obs_xy[:, :, 1]
+        # # extract x and y positions of all obstacles
+        # ox = obs_xy[:, :, 0]
+        # oy = obs_xy[:, :, 1]
+        #
+        # if obs_xy.shape[0] > 1:
+        #     # IMPORTANT: duplicate the first row of trajectory, because the first two rows of ox,oy
+        #     # correspond to the obstacles in red and green area respectively, and the first row of the
+        #     # trajectory contains the current position of the robot
+        #     # trajectory = np.concatenate((np.expand_dims(trajectory[3], axis=0), trajectory), axis=0)
+        #     trajectory = np.concatenate((np.expand_dims(trajectory[3], axis=0), trajectory), axis=0)
 
-        if obs_xy.shape[0] > 1:
-            # IMPORTANT: duplicate the first row of trajectory, because the first two rows of ox,oy
-            # correspond to the obstacles in red and green area respectively, and the first row of the
-            # trajectory contains the current position of the robot
-            # trajectory = np.concatenate((np.expand_dims(trajectory[3], axis=0), trajectory), axis=0)
-            trajectory = np.concatenate((np.expand_dims(trajectory[3], axis=0), trajectory), axis=0)
+        ox_lidar = obs_lidar[:, :, 0]
+        oy_lidar = obs_lidar[:, :, 1]
+
+        dx_lidar = trajectory[:, None, 0] - ox_lidar
+        dy_lidar = trajectory[:, None, 1] - oy_lidar
+
+        dist_to_obs = np.hypot(dx_lidar, dy_lidar)
+
+        ox_pred = neigh_predicted[:, :, 0]
+        oy_pred = neigh_predicted[:, :, 1]
 
         # calculate dist to the robot(in every robot state for the current trajectory) in x and y axis
-        dx = trajectory[:, None, 0] - ox
-        dy = trajectory[:, None, 1] - oy
+        dx_pred = trajectory[:, None, 0] - ox_pred
+        dy_pred = trajectory[:, None, 1] - oy_pred
 
-        dist_to_obs = np.hypot(dx, dy)
+        dist_to_pred = np.hypot(dx_pred, dy_pred)
 
         if self.config.robot_type == RobotType.circle:
             # collision check
-            if np.array(dist_to_obs <= self.config.robot_radius).any():
+            if np.array(dist_to_obs <= self.config.robot_radius).any() or \
+                    np.array(dist_to_pred <= self.config.robot_radius).any():
                 return float("Inf")
         else:
             raise ValueError("Current implementation of the code only works with circular robot type!")
 
         # if no collision, choose the obstacle closest to the robot
-        min_r = np.nanmin(dist_to_obs)
+        min_r_obs = np.nanmin(dist_to_obs)
+        min_r_pred = np.nanmin(dist_to_pred)
 
-        return 1.0 / min_r  # OK
+        if min(min_r_obs, min_r_pred) == min_r_pred:
+            print("*" * 100)
+            print("*" * 100)
+            print("*" * 100)
+            print("*" * 100)
+            print("*" * 100)
+            print(neigh_predicted[:, :2, :])
+            print(trajectory)
+
+        return 1.0 / min(min_r_obs, min_r_pred)  # OK
 
     def calc_control_and_trajectory(self, r_curr_state: np.ndarray, dyn_window: list, r_goal_xy: np.ndarray,
-                                    obs_xy: np.ndarray):
+                                    obs_lidar, neigh_predicted):
         """
         Calculates the best proposed action and the trajectory related to that action.\n
         :param r_curr_state: current state of the robot given as: [x(m), y(m), omega(rad), v_r(m/s), v_omega(rad/s)]
@@ -272,7 +294,7 @@ class DWA:
                 speed_cost = self.config.speed_cost_gain * (self.config.max_speed - trajectory[-1, 3])
 
                 # calc. 1 / dist. to closest obstacle
-                ob_cost = self.config.obstacle_cost_gain * self.calc_obstacle_cost(trajectory, obs_xy)
+                ob_cost = self.config.obstacle_cost_gain * self.calc_obstacle_cost(trajectory, obs_lidar, neigh_predicted)
 
                 # total cost of the trajectory
                 final_cost = to_goal_cost + speed_cost + ob_cost
@@ -368,10 +390,10 @@ class DWA:
         print("world frame(predicted): ")
         print(neigh_predicted[:, 0, :])
 
-        neigh = np.concatenate((obs_lidar, neigh_predicted), axis=0)
+        # neigh = np.concatenate((obs_lidar, neigh_predicted), axis=0)
 
         # best proposed action(here: u) and predicted trajectory calculated
-        best_proposed_action, predicted_trajectory = self.dwa_control(r_curr_state, r_goal_xy, neigh)
+        best_proposed_action, predicted_trajectory = self.dwa_control(r_curr_state, r_goal_xy, obs_lidar, neigh_predicted)
 
         return np.array([best_proposed_action])
 
@@ -379,4 +401,13 @@ class DWA:
 if __name__ == '__main__':
     robot_config = ConfigRobot(robot_model="locobot", collision_dist=0.2)
     sim_config = ConfigNav(robot_config=robot_config)
-    dwa = DWA(sim_config, -1, 30)
+    # calculate neighboring index(diff. representation of an adjacency matrix
+    num_agent = 72
+    neigh_idx = np.ones((num_agent * (num_agent - 1), 3), dtype=np.int)
+    k = 0
+    for i in range(num_agent):
+        for j in range(num_agent):
+            if i != j:
+                neigh_idx[k, :] = np.array([i, j, j])
+                k += 1
+    dwa = DWA(sim_config, num_agent=num_agent, hist=7, neigh_index=neigh_idx)
