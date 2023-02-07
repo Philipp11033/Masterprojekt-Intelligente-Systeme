@@ -345,6 +345,9 @@ class DWA:
             traj_rel[1:] = (obs_traj_pos_filled[1:] - obs_traj_pos_filled[:-1])
             traj_rel = torch.where(traj_rel < -300, torch.zeros_like(obs_traj_pos_fov), traj_rel) * mask_rel
 
+            # print(obs_traj_pos[:, 0, :])
+            # print(traj_rel[:, 0, :])
+
             # forward propagation
             pred_traj_rel, _, _ = self.pred_model_ar(traj_rel=traj_rel.float(),
                                                      obs_traj_pos=obs_traj_pos_fov.float(),
@@ -361,6 +364,9 @@ class DWA:
 
         # add predicted positions to the array
         neigh_predicted[1:, 0:obs_traj_pos_fov.shape[1]] = pred_traj_abs.cpu().numpy()
+
+        print("world frame(predicted): ")
+        print(neigh_predicted[:, 0, :])
 
         neigh = np.concatenate((obs_lidar, neigh_predicted), axis=0)
 

@@ -80,7 +80,7 @@ class ConfigNav:
 
         # weight for the difference between the linear velocity of the current "predicted" trajectory and the max
         # allowed linear velocity
-        self.speed_cost_gain = 5
+        self.speed_cost_gain = 10
 
         # weight for (1 / dist. to closest obstacle)
-        self.obstacle_cost_gain = 2
+        self.obstacle_cost_gain = 3

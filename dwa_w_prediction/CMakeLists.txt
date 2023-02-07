@@ -71,7 +71,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate added messages and services with any dependencies listed here
 # generate_messages(
 #   DEPENDENCIES
-#   std_msgs
+#   std_msgs#   visualization_msgs
 # )
 
 ################################################
@@ -105,8 +105,8 @@ find_package(catkin REQUIRED COMPONENTS
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES simple_dwa_lidar
-#  CATKIN_DEPENDS roscpp rospy std_msgs
+#  LIBRARIES dwa_w_prediction
+#  CATKIN_DEPENDS roscpp rospy std_msgs visualization_msgs
 #  DEPENDS system_lib
 )
 
@@ -123,7 +123,7 @@ include_directories(
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/simple_dwa_lidar.cpp
+#   src/${PROJECT_NAME}/dwa_w_prediction.cpp
 # )
 
 ## Add cmake target dependencies of the library
@@ -134,7 +134,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/simple_dwa_lidar_node.cpp)
+# add_executable(${PROJECT_NAME}_node src/dwa_w_prediction_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -198,7 +198,7 @@ include_directories(
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_simple_dwa_lidar.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_dwa_w_prediction.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

@@ -1,5 +1,5 @@
 <launch>
-    <arg name="num_agents" default="10"/>
+    <arg name="num_agents" default="72"/>
     <arg name="robot_goal" default="5.5 0"/>
     <arg name="hist" default="7"/>
     <node pkg="dwa_w_prediction" type="main_node.py" name="dwa_w_prediction" output="screen">

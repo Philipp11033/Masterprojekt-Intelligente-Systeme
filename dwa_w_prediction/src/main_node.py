@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import datetime
 import sys
 
 import rospy
@@ -9,6 +10,7 @@ from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from visualization_msgs.msg import MarkerArray
 import tf
+from tf.transformations import quaternion_matrix
 from config import ConfigRobot, ConfigNav
 from DWA import DWA
 
@@ -42,9 +44,9 @@ class MainNode:
                     self.neigh_idx[k, :] = np.array([i, j, j])
                     k += 1
 
-        # current position of all pedestrians
-        self.ped_pos_xy_rf = np.ones((hist + 1, self.num_agent, 2)) * -1000
-        self.ped_pos_xy_wf = np.ones((hist + 1, self.num_agent, 2)) * -1000
+        # current position of all pedestrians (default values)
+        self.ped_pos_xy_rf_def = np.ones((hist + 1, self.num_agent, 2)) * -1000
+        self.ped_pos_xy_wf_def = np.ones((hist + 1, self.num_agent, 2)) * -1000
 
         # LiDAR related params
         self.min_measurements = 25
@@ -61,7 +63,7 @@ class MainNode:
         self.sim_config = ConfigNav(robot_config=self.robot_config)
 
         # initialize DWA, once we know the number of agents
-        self.dwa = DWA(sim_config=self.sim_config, num_agent=self.num_agent)
+        self.dwa = DWA(sim_config=self.sim_config, num_agent=self.num_agent, hist=self.hist, neigh_index=self.neigh_idx)
         print("DWA initialized with  %d number of agents" % (self.num_agent))
 
         # Node cycle rate (in Hz).
@@ -72,11 +74,14 @@ class MainNode:
         # Publishers
         self.pub = rospy.Publisher("/locobot/mobile_base/commands/velocity", Twist, queue_size=10)
 
+        # obj_sub = message_filters.Subscriber("/corrected_interpolated_history_position", MarkerArray)
+
+        # self.data = rospy.wait_for_message("/corrected_interpolated_history_position", MarkerArray, timeout=5)
+
         # Subscribers
         robot_sub = message_filters.Subscriber("/locobot/mobile_base/odom", Odometry)
         lidar_sub = message_filters.Subscriber("/locobot/scan", LaserScan)
-        obj_sub = rospy.Subscriber("/interpolated_history_position", MarkerArray, self.call_robot)
-        ts = message_filters.ApproximateTimeSynchronizer([robot_sub, lidar_sub, obj_sub], queue_size=1, slop=0.1)
+        ts = message_filters.ApproximateTimeSynchronizer([robot_sub, lidar_sub], queue_size=1, slop=0.1)
 
         ts.registerCallback(self.call_robot)
 
@@ -101,7 +106,7 @@ class MainNode:
                 x = float('inf') * (-1)
                 y = float('inf') * (-1)
             else:
-                angle = angle_base - scan.angle_min + (i * scan.angle_increment)  # teset
+                angle = angle_base - scan.angle_min + (i * scan.angle_increment)
                 y = y_base - (math.sin(angle) * scan.ranges[i])
                 x = x_base - (math.cos(angle) * scan.ranges[i])
 
@@ -110,12 +115,21 @@ class MainNode:
 
         return pos_abs
 
-    def call_robot(self, robot_msg, lidar_sub, zed_camera_msg):
+    # def call_robot(self, robot_msg, lidar_sub, zed2_msg):
+    def call_robot(self, robot_msg, lidar_sub):
         """
         Callback function to work on the LiDAR data as well as the current position of the robot\n
         :param robot_msg: Odometry information of the robot
         :param lidar_sub: LaserScan measurements from the LiDAR
         """
+
+        a = rospy.get_rostime()
+        self.data = rospy.wait_for_message("/corrected_interpolated_history_position", MarkerArray, timeout=5)
+        print("waited for robot perception package: ")
+        print((rospy.get_rostime().secs - a.secs) + ((rospy.get_rostime().nsecs - a.nsecs) * 1e-9))
+
+        # self.data = zed2_msg
+
         # save last displacement
         self.r_pos_xy_rell = self.r_pos_xy_rel
 
@@ -136,33 +150,67 @@ class MainNode:
         # convert lidar values to absolute values
         lidar_abs = self.laserToAbs(lidar_sub, robot_msg.pose.pose.position.x, robot_msg.pose.pose.position.y, yaw)
         lidar_abs = np.expand_dims(lidar_abs, 0)
+        # print(lidar_abs.shape)
 
+        while True:
+            # extract translation and rotation for robot reference to robot world coordinates
+            try:
+                (trans, rot) = self.tf_listener.lookupTransform('/map', '/locobot/base_link', rospy.Time(0))
+                break
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+                print("could not find a look up transform")
+                continue
 
-        # extract translation and rotation for robot reference to robot world coordinates
-        try:
-            (trans, rot) = self.listener.lookupTransform('/map', '/tf_base_link', rospy.Time(0))
-        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-            pass
+        # print(trans)
+        # print(rot)
+        matrix = quaternion_matrix(rot)
+        matrix_arr = np.array(matrix)
+        matrix_arr[:, 3] = np.array([trans[0], trans[1], trans[2], 1])
+        # print(matrix_arr)
 
-        # extract positions of humans(in robot frame)
-        for (i, marker) in enumerate(zed_camera_msg.markers):
+        # current position of all pedestrians (actual values)
+        # with np.copy(), they are reset everytime
+        self.ped_pos_xy_rf = np.copy(self.ped_pos_xy_rf_def)
+        self.ped_pos_xy_wf = np.copy(self.ped_pos_xy_wf_def)
+
+        # extract positions of humans(in robot reference frame)
+        for (i, marker) in enumerate(self.data.markers):
+            # ignore first entry which belongs to the robot as well as any empty arrays
+            # if i == 0 or len(marker.points) == 0:
+            # print(len(marker.points))
+            # print(marker.points)
+            if i == 0 or len(marker.points) < 1:
+                continue
+
             for (j, point) in enumerate(marker.points):
-                self.ped_pos_xy_rf[j, i, :] = [point.x, point.y]
+                self.ped_pos_xy_rf[j, i - 1, :] = [point.x, point.y]
 
                 # 4d positional vector
                 pos_vec = np.array([point.x, point.y, 0, 1])
 
-                # 4x4 transformation matrix
-                transform_matrix = np.array([[rot, rot, rot, trans], [rot, rot, rot, trans],
-                                             [rot, rot, rot, trans], [0, 0, 0, 1]])
+                # convert to world frame
+                out = np.matmul(matrix_arr, pos_vec)
 
-                # 4d vector in world frame
-                out = np.matmul(transform_matrix, pos_vec)
+                self.ped_pos_xy_wf[j, i - 1, :] = [out[0], out[1]]
 
-                self.ped_pos_xy_wf[j, i, :] = [out[0], out[1]]
+            # if array was full, fill it with the last correct data
+            if len(marker.points) < 8:
+                last_not_default_value = np.where(self.ped_pos_xy_wf[:, i - 1, :] == -1000)
+
+                last_corr_xy_value = self.ped_pos_xy_wf[last_not_default_value[0][0]-1, i-1, :]
+
+                self.ped_pos_xy_wf[last_not_default_value[0][0]:, i-1, :] = last_corr_xy_value
+
+        # print("reference frame: ")
+        # print(self.ped_pos_xy_rf[:, :2, :])
+        # # print(self.ped_pos_xy_rf)
+        print("world frame: ")
+        # print(self.ped_pos_xy_wf)
+        print(self.ped_pos_xy_wf[:, :2, :])
+        print(len(self.data.markers))
 
 
-        if np.linalg.norm(self.r_goal - self.r_pos_xy) <= self.sim_config.robot_radius:
+        if np.linalg.norm(self.r_goal - self.r_pos_xy) <= self.sim_config.robot_radius + 0.2:
             # if we have reached the goal, stop
             self.pub.publish(Twist())
         else:
@@ -200,7 +248,12 @@ class MainNode:
             self.cmd_vel.linear.x = u[0, 0]
             self.cmd_vel.angular.z = u[0, 1]
 
+            # print(self.cmd_vel)
+
             self.pub.publish(self.cmd_vel)
+            print("full time: ")
+            print((rospy.get_rostime().secs - a.secs) + ((rospy.get_rostime().nsecs - a.nsecs) * 1e-9))
+            print("-------")
 
 
 if __name__ == '__main__':
