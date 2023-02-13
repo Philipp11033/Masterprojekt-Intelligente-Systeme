@@ -20,17 +20,17 @@ class DWA:
     """
         Class with a straightforward Dynamic Window Approach implementation.
     """
-    def __init__(self, sim_config: ConfigNav, num_agent: int, hist: int, neigh_index):
+    def __init__(self, nav_config: ConfigNav, num_agent: int, hist: int, neigh_index):
         """
         Simple Constructor to initialize relevant parameters.\n
-        :param sim_config: configuration object for the chosen robot and navigation params
+        :param nav_config: configuration object for the chosen robot and navigation params
         :param num_agent: max. number of agents to keep track of
         :param hist: number of ticks into the past we keep track of for humans
         :param neigh_index: neighbouring matrix
         """
-        self.robot_model = sim_config.robot_model
+        self.robot_model = nav_config.robot_model
         self.num_agent = num_agent
-        self.config = sim_config
+        self.config = nav_config
         self.hist = hist
         self.neigh_index = neigh_index
 
@@ -50,6 +50,11 @@ class DWA:
         self.pred_model_ar = self.get_model(self.sample_batch)
 
     def get_model(self, sample_batch):
+        """
+        Function to initialize and load the weights of the prediction model
+        :param sample_batch: number of date per batch that will be fed to the neural network
+        :returns: the prediction model as a Pytorch object
+        """
         _dir = os.path.dirname(__file__) or '.'
         _dir = _dir + "/model/weights/"
 
@@ -90,13 +95,16 @@ class DWA:
         Main function for Dynamic Window Approach that calls other necessary functions.\n
         :param r_curr_state: current state of the robot given as: [x(m), y(m), omega(rad), v_r(m/s), v_omega(rad/s)]
         :param r_goal_xy: goal of the robot
-        :param obs_xy: current positions of all detected/filtered obstacles
+        :param obs_lidar: numpy array of all positions of every obstacle detected by the LiDAR in world coordinate
+        :param neigh_predicted: numpy array of all positions of every person detected by the camera in world coordinate
         :return:
         """
         # dynamic window returned here as a list: [v_r_min, v_r_max, v_omega_min, v_omega_max]
         dyn_window = self.calc_dynamic_window(r_curr_state)
 
-        proposed_action, trajectory = self.calc_control_and_trajectory(r_curr_state, dyn_window, r_goal_xy, obs_lidar, neigh_predicted)
+        # calculate the best proposed action as well as the best trajectory
+        proposed_action, trajectory = self.calc_control_and_trajectory(r_curr_state, dyn_window, r_goal_xy, obs_lidar,
+                                                                       neigh_predicted)
         return proposed_action, trajectory
 
     @staticmethod
@@ -195,9 +203,9 @@ class DWA:
         cost_angle = optimal_angle - trajectory[-1, 2]  # [rad]
 
         # original implementation's line below, which is equivalent to just taking the absolute value of the cost_angle
-        cost = abs(math.atan2(math.sin(cost_angle), math.cos(cost_angle)))  # [rad]
+        # cost = abs(math.atan2(math.sin(cost_angle), math.cos(cost_angle)))  # [rad]
         # we are interested in how much the diff. is, not in which direction the difference is -> so, take absolute val.
-        # cost = abs(cost_angle)
+        cost = abs(cost_angle)
 
         return cost
 
@@ -205,35 +213,30 @@ class DWA:
         """
         Calculates the cost to the goal with respect to the angle difference.\n
         :param trajectory: numpy array of all robot states for "current" prediction(aka. trajectory of robot in prediction)
-        :param obs_xy: numpy array of all positions of every obstacle in world coordinate system
+        :param obs_lidar: numpy array of all positions of every obstacle detected by the LiDAR in world coordinate
+        :param neigh_predicted: numpy array of all positions of every person detected by the camera in world coordinate
         :return: dist of the closest obstacle to the robot (specifically: 1 / min_r)
         """
-        # # extract x and y positions of all obstacles
-        # ox = obs_xy[:, :, 0]
-        # oy = obs_xy[:, :, 1]
-        #
-        # if obs_xy.shape[0] > 1:
-        #     # IMPORTANT: duplicate the first row of trajectory, because the first two rows of ox,oy
-        #     # correspond to the obstacles in red and green area respectively, and the first row of the
-        #     # trajectory contains the current position of the robot
-        #     # trajectory = np.concatenate((np.expand_dims(trajectory[3], axis=0), trajectory), axis=0)
-        #     trajectory = np.concatenate((np.expand_dims(trajectory[3], axis=0), trajectory), axis=0)
-
+        # extract x and y coordinates of the LiDAR
         ox_lidar = obs_lidar[:, :, 0]
         oy_lidar = obs_lidar[:, :, 1]
 
+        # calculate the distances in x and y-axis to the robot for each tick of the trajectory
         dx_lidar = trajectory[:, None, 0] - ox_lidar
         dy_lidar = trajectory[:, None, 1] - oy_lidar
 
+        # calculate the euclidean distances to the robot for each tick of the trajectory
         dist_to_obs = np.hypot(dx_lidar, dy_lidar)
 
+        # extract x and y coordinates of the detected people
         ox_pred = neigh_predicted[:, :, 0]
         oy_pred = neigh_predicted[:, :, 1]
 
-        # calculate dist to the robot(in every robot state for the current trajectory) in x and y axis
+        # calculate dist to the robot(in every robot state for the current trajectory) in x and y-axis
         dx_pred = trajectory[:, None, 0] - ox_pred
         dy_pred = trajectory[:, None, 1] - oy_pred
 
+        # calculate the euclidean distances to the robot for each tick of the trajectory
         dist_to_pred = np.hypot(dx_pred, dy_pred)
 
         if self.config.robot_type == RobotType.circle:
@@ -248,15 +251,6 @@ class DWA:
         min_r_obs = np.nanmin(dist_to_obs)
         min_r_pred = np.nanmin(dist_to_pred)
 
-        if min(min_r_obs, min_r_pred) == min_r_pred:
-            print("*" * 100)
-            print("*" * 100)
-            print("*" * 100)
-            print("*" * 100)
-            print("*" * 100)
-            print(neigh_predicted[:, :2, :])
-            print(trajectory)
-
         return 1.0 / min(min_r_obs, min_r_pred)  # OK
 
     def calc_control_and_trajectory(self, r_curr_state: np.ndarray, dyn_window: list, r_goal_xy: np.ndarray,
@@ -267,7 +261,8 @@ class DWA:
         :param dyn_window: Dynamic Window with allowed linear and angular velocity thresholds as a list:
         [v_r_min, v_r_max, v_omega_min, v_omega_max]
         :param r_goal_xy: goal of the robot given as: [x(m), y(m)]
-        :param obs_xy: current positions of all detected/filtered obstacles
+        :param obs_lidar: numpy array of all positions of every obstacle detected by the LiDAR in world coordinate
+        :param neigh_predicted: numpy array of all positions of every person detected by the camera in world coordinate
         :return:
         """
         # init variables
@@ -310,8 +305,10 @@ class DWA:
                             and abs(r_curr_state[3]) < self.config.robot_stuck_flag_cons:
                         # to ensure the robot does not get stuck in best v=0 m/s (in front of an obstacle) and
                         # best omega=0 rad/s (heading to the goal with angle difference of 0)
+                        # expected behaviour: the robot (given enough time) stops and only turns around to find a
+                        # trajectory that makes it unstuck
                         best_proposed_action[0] = 0
-                        best_proposed_action[1] = -self.config.max_yaw_rate  # Bug in original code? Corrected to max_yaw_rate instead
+                        best_proposed_action[1] = -self.config.max_yaw_rate
 
         return best_proposed_action, best_trajectory
 
@@ -339,11 +336,13 @@ class DWA:
         y = r * np.sin(theta)
         return x, y
 
-    def predict(self, obs_traj_pos: np.ndarray, obs_lidar, r_pos_xy: np.ndarray, r_goal_xy: np.ndarray, r_vel_state: np.ndarray) -> np.ndarray:
+    def predict(self, obs_traj_pos: np.ndarray, obs_lidar, r_pos_xy: np.ndarray, r_goal_xy: np.ndarray,
+                r_vel_state: np.ndarray) -> np.ndarray:
         """
         Main function for Dynamic Window Approach that calls other necessary functions to predict trajectories and
         choose the best proposed action.\n
-        :param obs_traj_pos: position of all obstacles given as: [[x(m), y(m)], ...]
+        :param obs_traj_pos: position of all detected people by the camera given as: [[x(m), y(m)], ...]
+        :param obs_lidar: position of all detected obstacles by the LiDAR given as: [[x(m), y(m)], ...]
         :param r_pos_xy: current position of the robot given as: [x(m), y(m)]
         :param r_goal_xy: goal of the robot given as: [x(m), y(m)]
         :param r_vel_state: current velocity and orientation of robot given as: [v_x(m/s), v_y(m/s), theta(rad),
@@ -367,9 +366,6 @@ class DWA:
             traj_rel[1:] = (obs_traj_pos_filled[1:] - obs_traj_pos_filled[:-1])
             traj_rel = torch.where(traj_rel < -300, torch.zeros_like(obs_traj_pos_fov), traj_rel) * mask_rel
 
-            # print(obs_traj_pos[:, 0, :])
-            # print(traj_rel[:, 0, :])
-
             # forward propagation
             pred_traj_rel, _, _ = self.pred_model_ar(traj_rel=traj_rel.float(),
                                                      obs_traj_pos=obs_traj_pos_fov.float(),
@@ -387,13 +383,9 @@ class DWA:
         # add predicted positions to the array
         neigh_predicted[1:, 0:obs_traj_pos_fov.shape[1]] = pred_traj_abs.cpu().numpy()
 
-        print("world frame(predicted): ")
-        print(neigh_predicted[:, 0, :])
-
-        # neigh = np.concatenate((obs_lidar, neigh_predicted), axis=0)
-
         # best proposed action(here: u) and predicted trajectory calculated
-        best_proposed_action, predicted_trajectory = self.dwa_control(r_curr_state, r_goal_xy, obs_lidar, neigh_predicted)
+        best_proposed_action, predicted_trajectory = self.dwa_control(r_curr_state, r_goal_xy, obs_lidar,
+                                                                      neigh_predicted)
 
         return np.array([best_proposed_action])
 
@@ -401,7 +393,7 @@ class DWA:
 if __name__ == '__main__':
     robot_config = ConfigRobot(robot_model="locobot", collision_dist=0.2)
     sim_config = ConfigNav(robot_config=robot_config)
-    # calculate neighboring index(diff. representation of an adjacency matrix
+    # calculate neighboring index(diff. representation of an adjacency matrix)
     num_agent = 72
     neigh_idx = np.ones((num_agent * (num_agent - 1), 3), dtype=np.int)
     k = 0
