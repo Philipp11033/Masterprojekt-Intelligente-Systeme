@@ -1,3 +1,8 @@
 <launch>
-    <node pkg="simple_dwa_lidar" type="pedsim_dwa.py" name="simple_dwa_lidar" output="screen"/>
+    <arg name="num_agents" default="30"/>
+    <arg name="robot_goal" default="5.5 0.0"/>
+    <node pkg="simple_dwa_lidar" type="main_node.py" name="simple_dwa_lidar" output="screen">
+        <param name="num_agents" value="$(arg num_agents)" />
+        <param name="robot_goal" value="$(arg robot_goal)" />
+    </node>
 </launch>
