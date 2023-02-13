@@ -17,15 +17,15 @@ class DWA:
     """
         Class with a straightforward Dynamic Window Approach implementation.
     """
-    def __init__(self, sim_config: ConfigNav, num_agent: int):
+    def __init__(self, nav_config: ConfigNav, num_agent: int):
         """
         Simple Constructor to initialize relevant parameters.\n
-        :param sim_config: configuration object for the chosen robot and navigation params
+        :param nav_config: configuration object for the chosen robot and navigation params
         :param num_agent: max. number of agents to keep track of
         """
-        self.robot_model = sim_config.robot_model
+        self.robot_model = nav_config.robot_model
         self.num_agent = num_agent
-        self.config = sim_config
+        self.config = nav_config
 
     def dwa_control(self, r_curr_state: np.ndarray, r_goal_xy: np.ndarray, obs_xy: np.ndarray):
         """
@@ -38,7 +38,9 @@ class DWA:
         # dynamic window returned here as a list: [v_r_min, v_r_max, v_omega_min, v_omega_max]
         dyn_window = self.calc_dynamic_window(r_curr_state)
 
+        # calculate the best proposed action as well as the best trajectory
         proposed_action, trajectory = self.calc_control_and_trajectory(r_curr_state, dyn_window, r_goal_xy, obs_xy)
+
         return proposed_action, trajectory
 
     @staticmethod
@@ -137,9 +139,9 @@ class DWA:
         cost_angle = optimal_angle - trajectory[-1, 2]  # [rad]
 
         # original implementation's line below, which is equivalent to just taking the absolute value of the cost_angle
-        cost = abs(math.atan2(math.sin(cost_angle), math.cos(cost_angle)))  # [rad]
+        # cost = abs(math.atan2(math.sin(cost_angle), math.cos(cost_angle)))  # [rad]
         # we are interested in how much the diff. is, not in which direction the difference is -> so, take absolute val.
-        # cost = abs(cost_angle)
+        cost = abs(cost_angle)
 
         return cost
 
@@ -223,8 +225,10 @@ class DWA:
                             and abs(r_curr_state[3]) < self.config.robot_stuck_flag_cons:
                         # to ensure the robot does not get stuck in best v=0 m/s (in front of an obstacle) and
                         # best omega=0 rad/s (heading to the goal with angle difference of 0)
+                        # expected behaviour: the robot (given enough time) stops and only turns around to find a
+                        # trajectory that makes it unstuck
                         best_proposed_action[0] = 0
-                        best_proposed_action[1] = -self.config.max_yaw_rate  # Bug in original code? Corrected to max_yaw_rate instead
+                        best_proposed_action[1] = -self.config.max_yaw_rate
 
         return best_proposed_action, best_trajectory
 
@@ -252,11 +256,11 @@ class DWA:
         y = r * np.sin(theta)
         return x, y
 
-    def predict(self, obs_traj_pos: np.ndarray, obs_lidar, r_pos_xy: np.ndarray, r_goal_xy: np.ndarray, r_vel_state: np.ndarray) -> np.ndarray:
+    def predict(self, obs_lidar, r_pos_xy: np.ndarray, r_goal_xy: np.ndarray, r_vel_state: np.ndarray) -> np.ndarray:
         """
         Main function for Dynamic Window Approach that calls other necessary functions to predict trajectories and
         choose the best proposed action.\n
-        :param obs_traj_pos: position of all obstacles given as: [[x(m), y(m)], ...]
+        :param obs_lidar: position of all obstacles detected with LiDAR given as: [[x(m), y(m)], ...]
         :param r_pos_xy: current position of the robot given as: [x(m), y(m)]
         :param r_goal_xy: goal of the robot given as: [x(m), y(m)]
         :param r_vel_state: current velocity and orientation of robot given as: [v_x(m/s), v_y(m/s), theta(rad),
@@ -274,5 +278,5 @@ class DWA:
 
 if __name__ == '__main__':
     robot_config = ConfigRobot(robot_model="locobot", collision_dist=0.2)
-    sim_config = ConfigNav(robot_config=robot_config)
-    dwa = DWA(sim_config, -1, 30)
+    nav_config = ConfigNav(robot_config=robot_config)
+    dwa = DWA(nav_config, 30)
