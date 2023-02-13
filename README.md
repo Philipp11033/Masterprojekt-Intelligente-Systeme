@@ -1,4 +1,4 @@
-# Masterprojekt-Intelligente-Systeme
+# Masterprojekt-Intelligente-Systeme(Implementierung für den echten Roboter-Locobot Base)
 Our code implementation on the real robot is given in two parts: 
 * First part uses only DWA and LiDAR for navigation. We refer to this version of the code simply as DWA+LiDAR. The final state of this version of the code can be found in the 'dwa_w_prediction' branch of this repository. (NOTE: this is also the version of the code, from which the videos for the presentation were mostly made)
 * Second part combines DWA with LiDAR, Robot Perception package from the lab and the prediction model together. We refer to this version of the code simply as DWA+LiDAR+Perception+Prediction. The final state of this version of the code can be found in the 'real_robot_utku'.
