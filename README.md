@@ -27,3 +27,13 @@ roslaunch interbotix_xslocobot_control xslocobot_control.launch robot_model:=loc
 ```
 roslaunch simple_dwa_lidar demo.launch robot_goal:="5.5 0.0" num_agent:="30"
 ```
+
+# Additional Useful Commands
+* For controlling the locobot using keyboards, once can run the following from the terminal of the locobot(remark: requires the control package to be running):
+```
+roslaunch kobuki_keyop keyop.launch __ns:=locobot
+```
+* For reseting the odometry of the locobot(remark: requires the control package to be running):
+```
+rostopic pub --once /locobot/mobile_base/commands/reset_odometry std_msgs/Empty "{}"
+```
