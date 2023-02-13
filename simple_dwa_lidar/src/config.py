@@ -63,14 +63,11 @@ class ConfigNav:
         self.v_resolution = 0.025  # [m/s]
         self.yaw_rate_resolution = 0.025  # sim_granularity like in move_base
         self.dt = 0.4  # [s] Time tick for motion prediction
-        self.pred_time_steps = 2
+        self.pred_time_steps = 4
 
         # max. allowed time for motion prediction (predict_time / dt -> no. predictions per sampled (v_lin, v_ang) pair)
         self.predict_time = self.pred_time_steps * 0.4  # 1.7s for move_base we tested 4 * 0.4, but best results with 2 * 0.4
         self.robot_stuck_flag_cons = 0.001  # constant to prevent robot stuck
-
-        ### Prediction model parameters
-        self.pred_time_steps = 2
 
         ### weights for cost calculation
 
@@ -80,7 +77,7 @@ class ConfigNav:
 
         # weight for the difference between the linear velocity of the current "predicted" trajectory and the max
         # allowed linear velocity
-        self.speed_cost_gain = 5
+        self.speed_cost_gain = 10
 
         # weight for (1 / dist. to closest obstacle)
-        self.obstacle_cost_gain = 2
+        self.obstacle_cost_gain = 3
