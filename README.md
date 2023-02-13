@@ -40,7 +40,7 @@ roslaunch praxis_projekt_ws22 robot_perception.launch
 # Running The simple_dwa_lidar Package
 * Requires the control package from Locobot to be running.
 * We suggest setting the parameters in config file accordingly: to_goal_cost = 0.5, speed_cost_gain = 10, obstacle_cost_gain = 3, pred_time_steps = 4 and max_linear_vel(inside Config Robot Class) to .3 m/s
-* From remote PC, run
+* From remote PC, run(remark: the robot_goal and num_agent are free parameters that can be initialized as shown below, each indicating the goal of the robot in world coordinates and the max. number of obstacles being tracked respectively)
 ```
 roslaunch simple_dwa_lidar demo.launch robot_goal:="5.5 0.0" num_agent:="30"
 ```
